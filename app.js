@@ -1927,6 +1927,7 @@ const LHO_WEBHOOK_KEY = 'lho_game_webhook_url';
 const LHO_PIN_KEY = 'lho_game_teacher_pin';
 const LHO_STUDENTS_KEY = 'lho_game_students_records';
 const LHO_DEFAULT_PIN = '55555';
+const DEFAULT_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbxFxok3OGdSTx-ZenDUAo0FBZUhDvXFHnlRNvX3X9S0um6oLdYbDjrROwn3Pc-vLtcH1Q/exec";
 
 function getTeacherPIN() {
   try {
@@ -1985,12 +1986,51 @@ function openTeacherDashboard() {
   playAudioEffect('click');
   // Load Webhook URL into input (Mendukung URL terpadu dari Paket 1/2/3)
   const webhookInput = document.getElementById('input-lho-webhook');
-  const savedUrl = localStorage.getItem('PPG_MASTER_WEBHOOK_URL') || localStorage.getItem(LHO_WEBHOOK_KEY) || localStorage.getItem('GOOGLE_WEBHOOK_URL') || '';
+  const savedUrl = localStorage.getItem('PPG_MASTER_WEBHOOK_URL') || localStorage.getItem(LHO_WEBHOOK_KEY) || localStorage.getItem('GOOGLE_WEBHOOK_URL') || DEFAULT_WEBHOOK_URL;
   if (webhookInput) webhookInput.value = savedUrl;
 
   updateDashboardMetrics();
   renderTeacherDashboardTable();
   openModal('modal-teacher-dashboard');
+
+  // Tarik sinkronisasi presensi terbaru dari Google Spreadsheet
+  syncFromCloudSpreadsheet(false);
+}
+
+function syncFromCloudSpreadsheet(showFeedback) {
+  const webhookUrl = localStorage.getItem("PPG_MASTER_WEBHOOK_URL") || localStorage.getItem(LHO_WEBHOOK_KEY) || localStorage.getItem("GOOGLE_WEBHOOK_URL") || DEFAULT_WEBHOOK_URL;
+  if (!webhookUrl || !webhookUrl.startsWith('http')) return;
+
+  const refreshBtnIcon = document.querySelector('.btn-refresh-table i');
+  if (refreshBtnIcon) refreshBtnIcon.classList.add('fa-spin');
+
+  fetch(webhookUrl)
+    .then(r => r.json())
+    .then(data => {
+      if (refreshBtnIcon) refreshBtnIcon.classList.remove('fa-spin');
+      if (data && data.status === 'success' && Array.isArray(data.students)) {
+        let localRecords = getStoredStudents();
+        data.students.forEach(cs => {
+          const idx = localRecords.findIndex(lr => 
+            (lr.playerName || '').toLowerCase().trim() === (cs.playerName || '').toLowerCase().trim() &&
+            (lr.playerClass || '').toLowerCase().trim() === (cs.playerClass || '').toLowerCase().trim()
+          );
+          if (idx >= 0) {
+            localRecords[idx] = { ...localRecords[idx], ...cs };
+          } else {
+            localRecords.push(cs);
+          }
+        });
+        localStorage.setItem(LHO_STUDENTS_KEY, JSON.stringify(localRecords));
+        updateDashboardMetrics();
+        renderTeacherDashboardTable();
+        if (showFeedback) alert(`✅ Berhasil menyinkronkan data!\nTotal ${data.students.length} catatan presensi siswa termuat langsung dari Google Spreadsheet.`);
+      }
+    })
+    .catch(err => {
+      if (refreshBtnIcon) refreshBtnIcon.classList.remove('fa-spin');
+      console.log("Catatan sinkronisasi:", err);
+    });
 }
 
 function getStoredStudents() {
@@ -2016,7 +2056,7 @@ function updateDashboardMetrics() {
   const wsCount = students.filter(s => s.wordSearchStatus && s.wordSearchStatus.includes('Selesai 7/7')).length;
   if (wsEl) wsEl.textContent = wsCount;
 
-  const webhook = localStorage.getItem(LHO_WEBHOOK_KEY);
+  const webhook = localStorage.getItem("PPG_MASTER_WEBHOOK_URL") || localStorage.getItem(LHO_WEBHOOK_KEY) || localStorage.getItem("GOOGLE_WEBHOOK_URL") || DEFAULT_WEBHOOK_URL;
   if (cloudStatusEl) {
     if (webhook && webhook.startsWith('http')) {
       cloudStatusEl.textContent = '🟢 Terhubung';
@@ -2298,8 +2338,8 @@ function syncStudentPresenceToCloud(eventType, eventNote) {
     console.warn("Gagal menyimpan rekap lokal:", err);
   }
 
-  // 2. Kirim ke Google Apps Script / Google Sheets jika URL sudah dikonfigurasi
-  const webhookUrl = localStorage.getItem("PPG_MASTER_WEBHOOK_URL") || localStorage.getItem(LHO_WEBHOOK_KEY) || localStorage.getItem("GOOGLE_WEBHOOK_URL");
+  // 2. Kirim ke Google Apps Script / Google Sheets (Otomatis ke semua perangkat siswa)
+  const webhookUrl = localStorage.getItem("PPG_MASTER_WEBHOOK_URL") || localStorage.getItem(LHO_WEBHOOK_KEY) || localStorage.getItem("GOOGLE_WEBHOOK_URL") || DEFAULT_WEBHOOK_URL;
   if (webhookUrl && webhookUrl.startsWith('http')) {
     fetch(webhookUrl, {
       method: "POST",
@@ -2374,3 +2414,4 @@ window.printTeacherAttendance = printTeacherAttendance;
 window.clearTeacherStudentData = clearTeacherStudentData;
 window.deleteStudentRecord = deleteStudentRecord;
 window.syncStudentPresenceToCloud = syncStudentPresenceToCloud;
+window.syncFromCloudSpreadsheet = syncFromCloudSpreadsheet;

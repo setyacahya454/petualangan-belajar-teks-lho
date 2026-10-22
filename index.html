@@ -935,6 +935,9 @@
           </div>
         </div>
         <div class="dashboard-header-actions">
+          <a href="https://docs.google.com/spreadsheets" target="_blank" rel="noopener" class="dash-btn btn-open-sheet" style="background: #0284c7; color: #ffffff; text-decoration: none;" title="Buka Google Sheets di Tab Baru">
+            <i class="fa-solid fa-arrow-up-right-from-square"></i> Buka Google Sheets
+          </a>
           <button class="dash-btn btn-export-csv" onclick="exportStudentsToCSV()" title="Unduh File CSV / Excel">
             <i class="fa-solid fa-file-excel"></i> Unduh Excel (CSV)
           </button>
@@ -1027,8 +1030,8 @@
               <option value="X E">Kelas X E</option>
               <option value="X F">Kelas X F</option>
             </select>
-            <button class="dash-btn btn-refresh-table" onclick="renderTeacherDashboardTable()" title="Segarkan Data">
-              <i class="fa-solid fa-arrows-rotate"></i>
+            <button class="dash-btn btn-refresh-table" onclick="syncFromCloudSpreadsheet(true)" title="Segarkan Data dari Cloud & Spreadsheet">
+              <i class="fa-solid fa-arrows-rotate"></i> Segarkan Data Cloud
             </button>
           </div>
         </div>
